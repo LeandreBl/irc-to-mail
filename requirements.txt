@@ -1,0 +1,4 @@
+irc
+ultraimport
+discord.py
+dotenv
