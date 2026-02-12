@@ -8,5 +8,8 @@ class Hook:
     def stop(self):
         pass
 
-    def on_msg(self, logger, connection, event):
+    def on_msg(self, connection, event):
+        pass
+
+    def on_welcome(self, connection, event):
         pass

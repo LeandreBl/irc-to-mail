@@ -57,9 +57,10 @@ def main(argv: list[str]):
         ssl=args.ssl,
     )
 
-    itm.connect()
+    while True:
+        itm.connect()
 
-    itm.run()
+        itm.run()
 
 
 if __name__ == '__main__':

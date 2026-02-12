@@ -35,7 +35,21 @@ class Ith(irc.client_aio.AioSimpleIRCClient):
         logging.info(
             f'Connected to {self.address}:{self.port} as {self.nickname}')
 
+        for hook in self.hooks.values():
+            if hasattr(hook, 'on_welcome'):
+                hook.on_welcome(connection, event)
+
     def on_privmsg(self, connection, event):
+        if not self.forwarding:
+            diff = time.time() - self.connected_at
+            if diff < 2:
+                return
+            self.forwarding = True
+
+        for hook in self.hooks.values():
+            hook.on_msg(connection, event)
+
+    def on_pubmsg(self, connection, event):
         if not self.forwarding:
             diff = time.time() - self.connected_at
             if diff < 2:
@@ -47,7 +61,9 @@ class Ith(irc.client_aio.AioSimpleIRCClient):
 
     def on_disconnect(self, connection, event):
         logging.info(f'Disconnected from {self.address}:{self.port}')
-        sys.exit(0)
+        for hook in self.hooks.values():
+            if hasattr(hook, 'on_disconnect'):
+                hook.on_disconnect(connection, event)
 
     def connect(self):
         if self.ssl:
@@ -64,7 +80,6 @@ class Ith(irc.client_aio.AioSimpleIRCClient):
             self.forwarding = False
         except irc.client.ServerConnectionError as e:
             logging.error(f'Failed to connect: {e}')
-            sys.exit(1)
 
     def _load_hooks(self):
         for filename in os.listdir(self.hooks_directory):
