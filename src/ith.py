@@ -64,8 +64,11 @@ class Ith(irc.client_aio.AioSimpleIRCClient):
         for hook in self.hooks.values():
             if hasattr(hook, 'on_disconnect'):
                 hook.on_disconnect(connection, event)
+        # Stop the reactor loop so that run() returns and the main
+        # loop can reconnect to the IRC server.
+        self.reactor.loop.call_soon_threadsafe(self.reactor.loop.stop)
 
-    def connect(self):
+    def connect(self) -> bool:
         if self.ssl:
             logging.info('Using SSL for connection')
             ssl_factory = irc.connection.AioFactory(ssl=True)
@@ -78,8 +81,10 @@ class Ith(irc.client_aio.AioSimpleIRCClient):
                                                                                                  connect_factory=ssl_factory))
             self.connected_at = time.time()
             self.forwarding = False
+            return True
         except irc.client.ServerConnectionError as e:
             logging.error(f'Failed to connect: {e}')
+            return False
 
     def _load_hooks(self):
         for filename in os.listdir(self.hooks_directory):
@@ -99,7 +104,11 @@ class Ith(irc.client_aio.AioSimpleIRCClient):
         except Exception as e:
             logging.exception(e)
         finally:
-            self.connection.disconnect()
+            try:
+                if self.connection and self.connection.is_connected():
+                    self.connection.disconnect('Reconnecting')
+            except Exception as e:
+                logging.error(f'Error while disconnecting: {e}')
             for name, hook in self.hooks.items():
                 logging.info(f'Stopping hook: {name}')
                 hook.stop()

@@ -78,8 +78,12 @@ class DiscordClient(discord.Client):
             return
         logging.info(
             f'DISCORD({message.author}) > "{message.content}" > IRC({to})')
-        self.itm.connection.reactor.loop.call_soon(
-            self.itm.connection.privmsg,
+        connection = self.itm.connection
+        if connection is None or not connection.is_connected():
+            await message.author.send('IRC connection is down, message not sent')
+            return
+        connection.reactor.loop.call_soon_threadsafe(
+            connection.privmsg,
             to,
             content
         )
@@ -114,7 +118,7 @@ class Hook(Hook):
         self.intents.message_content = True
         self.client = None
         self.token = os.getenv('DISCORD_BOT_TOKEN')
-        self.thread = threading.Thread(target=self._run)
+        self.thread = None
         self.itm = itm
 
     def _run(self):
@@ -123,15 +127,30 @@ class Hook(Hook):
 
     def start(self):
         self.client = DiscordClient(intents=self.intents, itm=self.itm)
+        self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
 
     def stop(self):
-        asyncio.run(self.client.close())
-        self.thread.join()
-        self.thread = None
+        if self.client is not None:
+            loop = getattr(self.client, 'loop', None)
+            if loop is not None and loop.is_running():
+                future = asyncio.run_coroutine_threadsafe(
+                    self.client.close(), loop)
+                try:
+                    future.result(timeout=10)
+                except Exception as e:
+                    logging.error(f'Error closing discord client: {e}')
+        if self.thread is not None:
+            self.thread.join(timeout=10)
+            self.thread = None
+        self.client = None
 
     def on_msg(self, connection, event):
         if event.target != connection.get_nickname():
+            return
+
+        if self.client is None or self.client.me is None:
+            logging.warning('Discord client not ready, message not forwarded')
             return
 
         sender = event.source.nick

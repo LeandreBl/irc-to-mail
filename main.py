@@ -3,6 +3,7 @@ import argparse
 import sys
 import re
 import logging
+import time
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -58,9 +59,11 @@ def main(argv: list[str]):
     )
 
     while True:
-        itm.connect()
+        if itm.connect():
+            itm.run()
 
-        itm.run()
+        logging.info('Reconnecting in 5 seconds...')
+        time.sleep(5)
 
 
 if __name__ == '__main__':
