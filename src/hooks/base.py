@@ -13,3 +13,6 @@ class Hook:
 
     def on_welcome(self, connection, event):
         pass
+
+    def on_disconnect(self, connection, event):
+        pass

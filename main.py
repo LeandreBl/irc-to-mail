@@ -3,7 +3,7 @@ import argparse
 import sys
 import re
 import logging
-import time
+import signal
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -48,6 +48,9 @@ def main(argv: list[str]):
                         type=str_to_bool, required=False)
 
     args = parser.parse_args(argv)
+    logging.getLogger().setLevel(args.level)
+    # Exit through the normal path on SIGTERM (systemctl stop).
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
     itm = Ith(
         username=args.username,
@@ -58,12 +61,7 @@ def main(argv: list[str]):
         ssl=args.ssl,
     )
 
-    while True:
-        if itm.connect():
-            itm.run()
-
-        logging.info('Reconnecting in 5 seconds...')
-        time.sleep(5)
+    itm.run_forever()
 
 
 if __name__ == '__main__':

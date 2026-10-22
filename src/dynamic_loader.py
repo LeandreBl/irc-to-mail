@@ -9,7 +9,7 @@ class DynamicLoader:
         """
         Load a module dynamically from the given path.
         """
-        existing = self.modules.get(module_path)
+        existing = self.modules.get(name)
         if existing:
             return existing
 
